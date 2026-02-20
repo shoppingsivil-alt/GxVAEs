@@ -32,7 +32,7 @@ parser.add_argument('--generation', action='store_true', help='Validate GeneVAE'
 
 parser.add_argument('--gene_epochs', type=int, default=2000, help='GeneVAE training epochs') 
 parser.add_argument('--gene_num', type=int, default=978, help='Number of gene values') # MCF7: 978
-parser.add_argument('--gene_hidden_sizes', type=int, default=[512, 256, 128], help='Hidden layer sizes of GeneVAE') # MCF7: [512, 256, 128, 100]
+parser.add_argument('--gene_hidden_sizes', nargs='+', type=int, default=[512, 256, 128], help='Hidden layer sizes of GeneVAE') # MCF7: [512, 256, 128, 100]
 parser.add_argument('--gene_latent_size', type=int, default=64, help='Latent vector dimension of GeneVAE') # MCF7: 64
 parser.add_argument('--gene_lr', type=float, default=1e-4, help='Learning rate of GeneVAE') # MCF7: 1e-4
 parser.add_argument('--gene_batch_size', type=int, default=64, help='Batch size for training GeneVAE') # 64
@@ -55,9 +55,12 @@ parser.add_argument('--hidden_size', type=int, default=256, help='Hidden layer s
 parser.add_argument('--num_layers', type=int, default=3, help='Number of layers for training SmilesVAE')
 parser.add_argument('--smiles_latent_size', type=int, default=64, help='Latent vector dimension of SmilesVAE') # MCF7: 64
 parser.add_argument('--smiles_lr', type=float, default=5e-4, help='Learning rate of SmilesVAE')
-parser.add_argument('--bidirectional', type=bool, default='True', help='Apply bidirectional RNN')
+parser.add_argument('--bidirectional', dest='bidirectional', action='store_true', help='Apply bidirectional RNN')
+parser.add_argument('--no_bidirectional', dest='bidirectional', action='store_false', help='Apply unidirectional RNN')
 parser.add_argument('--smiles_dropout', type=float, default=0.1, help='Dropout probability')
-parser.add_argument('--temperature', type=float, default=1.0, help='Temperature of the SMILES VAE')
+parser.set_defaults(bidirectional=True)
+parser.add_argument('--temperature', type=float, default=1.0, help='Sampling temperature of the SMILES VAE')
+parser.add_argument('--teacher_forcing_rate', type=float, default=0.5, help='Teacher forcing rate in [0, 1] for SMILES decoder')
 parser.add_argument('--train_rate', type=float, default=0.9, help='Split training and validating subsets by training rate')
 parser.add_argument('--max_len', type=int, default=100, help='Maximum length of SMILES strings')
 parser.add_argument('--saved_smiles_vae', type=str, default='results/saved_smiles_vae.pkl', help='Save the trained SmilesVAE')
@@ -198,7 +201,8 @@ def main(args):
                 rand_z, 
                 gene_latent_vectors, 
                 args.max_len, 
-                tokenizer
+                tokenizer,
+                args.temperature
             )
             output_smiles = ["".join(tokenizer.decode(\
                 dec_sampled_char[i].squeeze().detach().cpu().numpy()
@@ -254,7 +258,7 @@ def main(args):
                     try:
                         fp1 = AllChem.GetMorganFingerprintAsBitVect(m1, 2, nBits=2048)
                     except Exception:
-                        break
+                        continue
                     else:
                         for j in range(len(canonical_source_data)):
                             try:
@@ -265,12 +269,15 @@ def main(args):
                             else:
                                 tanimoto.append([DataStructs.BulkTanimotoSimilarity(fp1, [fp2])[0], canonical_source_data[j], gen_data['SMILES'][i]])
 
-            res = pd.DataFrame(tanimoto)   
-            max_res = res.iloc[res[0].idxmax()]
-            print('protein name:', args.protein_name)
-            print('Source ligand:', max_res[1])
-            print('Best generation:', max_res[2])
-            print('Tanimoto similarity: {:.2f}'.format(max_res[0]))
+            if len(tanimoto) == 0:
+                print('No valid pair found for tanimoto calculation.')
+            else:
+                res = pd.DataFrame(tanimoto)   
+                max_res = res.iloc[res[0].idxmax()]
+                print('protein name:', args.protein_name)
+                print('Source ligand:', max_res[1])
+                print('Best generation:', max_res[2])
+                print('Tanimoto similarity: {:.2f}'.format(max_res[0]))
 
 
 if __name__ == '__main__':

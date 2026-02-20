@@ -92,6 +92,10 @@ def train_smiles_vae(
 
     print('\n')
     print('Training Information:')
+    alphas = torch.cat([
+        torch.linspace(0.99, 0.5, int(args.smiles_epochs/2)), 
+        0.5 * torch.ones(args.smiles_epochs - int(args.smiles_epochs/2))
+    ]).double().to(get_device())
 
     for epoch in range(args.smiles_epochs):
 
@@ -110,11 +114,12 @@ def train_smiles_vae(
             gene_latent_vectors, _ = trained_gene_vae(genes) # [batch_size, gene_latent_size]
 
             # Apply SmilesVAE (MolVAE)
-            z, decoded = smiles_vae(smiles, gene_latent_vectors, args.temperature)
-            alphas = torch.cat([
-                torch.linspace(0.99, 0.5, int(args.smiles_epochs/2)), 
-                0.5 * torch.ones(args.smiles_epochs - int(args.smiles_epochs/2))
-            ]).double().to(get_device())
+            z, decoded = smiles_vae(
+                smiles,
+                gene_latent_vectors,
+                args.temperature,
+                args.teacher_forcing_rate
+            )
 
             joint_loss, rec_loss, kld_loss = smiles_vae.joint_loss(
                 decoded, 
@@ -130,9 +135,10 @@ def train_smiles_vae(
             total_rec_loss += rec_loss.item()
             total_kld_loss += kld_loss.item()
 
-        mean_joint_loss = total_joint_loss / smiles.size(0)
-        mean_rec_loss = total_rec_loss / (smiles.size(0))
-        mean_kld_loss = total_kld_loss / (smiles.size(0))
+        num_train_batches = max(len(train_dataloader), 1)
+        mean_joint_loss = total_joint_loss / num_train_batches
+        mean_rec_loss = total_rec_loss / num_train_batches
+        mean_kld_loss = total_kld_loss / num_train_batches
                 
         # Evaluate valid and unique SMILES
         smiles_vae.eval()
@@ -148,7 +154,13 @@ def train_smiles_vae(
             gene_latent_vectors, _ = trained_gene_vae(genes)
             # Random values as smiles_z
             rand_z = torch.randn(genes.size(0), args.smiles_latent_size).to(get_device())
-            dec_sampled_char = smiles_vae.generation(rand_z, gene_latent_vectors, args.max_len, tokenizer)
+            dec_sampled_char = smiles_vae.generation(
+                rand_z,
+                gene_latent_vectors,
+                args.max_len,
+                tokenizer,
+                args.temperature
+            )
             output_smiles = ["".join(tokenizer.decode(\
                 dec_sampled_char[i].squeeze().detach().cpu().numpy()
                 )).strip("^$ ") for i in range(dec_sampled_char.size(0))]
