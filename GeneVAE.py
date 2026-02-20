@@ -87,8 +87,7 @@ class GeneDecoder(nn.Module):
 
         self.latent_size = latent_size
         # Reverse the number of neurons of dense layers
-        hidden_sizes.reverse()
-        self.hidden_sizes = hidden_sizes
+        self.hidden_sizes = list(reversed(hidden_sizes))
         self.output_size = output_size
         self.activation_fn = activation_fn
         self.dropout = [dropout] * len(self.hidden_sizes)

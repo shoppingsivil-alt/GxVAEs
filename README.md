@@ -14,20 +14,54 @@ GxVAEs aim to
 ## Environment Installation
 Execute the following command:
 ```
-$ conda env create -n gxvae_env -f gxvaes_env.yml
-$ source activate gxvaes_env
+$ conda env create -f env/gxvaes_env.yml
+$ conda activate gxvaes_env
 ```
+
+## Windows (PowerShell) Quick Start
+From the `GxVAEs` directory in PowerShell:
+```powershell
+# 1) Create environment (first time only)
+conda env create -f .\env\gxvaes_env.yml
+
+# 2) Activate
+conda activate gxvaes_env
+
+# 3) (Optional) Reproducibility
+# Add --use_seed to commands below if you want deterministic behavior.
+
+# 4) Train GeneVAE
+python .\main.py --train_gene_vae
+
+# 5) Test GeneVAE
+python .\main.py --test_gene_vae
+
+# 6) Train SmilesVAE
+python .\main.py --train_smiles_vae --teacher_forcing_rate 0.5 --temperature 1.0
+
+# 7) Generate molecules for one target protein
+python .\main.py --generation --protein_name AKT1 --candidate_num 50 --temperature 1.0
+
+# 8) Evaluate with Tanimoto similarity
+python .\main.py --calculate_tanimoto --protein_name AKT1
+```
+
+If `conda activate` is not recognized in PowerShell, run once:
+```powershell
+conda init powershell
+```
+Then restart PowerShell.
 
 ## File Description
 
 - **The datasets Folder**
     - LINCS/mcf7.csv: The training and validation datasets, which consist of gene expression profiles of the MCF7 cell line treated with 13,755 molecules, were used.
     - tools floder
-- **main.py:**: Define the main function for training the ProfileVAE and MolVAE models.
-- **ProfileVAE.py**: Defines the ProfileVAE model for extracting gene expression profile features.
-- **train_gene_vae.py**: Code for training the ProfileVAE model.
-- **MolVAE.py**: Defines the MolVAE model to generate SMILES strings with extracted gene features.
-- **train_smiles_vae.py**: Code for training the MolVAE model.
+- **main.py:** Define the main function for training, generation, and evaluation.
+- **GeneVAE.py**: Defines the GeneVAE model for extracting gene expression profile features.
+- **train_gene_vae.py**: Code for training the GeneVAE model.
+- **SmilesVAE.py**: Defines the SmilesVAE model to generate SMILES strings with extracted gene features.
+- **train_smiles_vae.py**: Code for training the SmilesVAE model.
 - **utils.py**: Defines other functions used in GxVAEs.
 
 ## Experimental Reproduction
@@ -42,7 +76,7 @@ $ source activate gxvaes_env
   ```
   - **STEP 3**: Train MolVAE:
   ```  
-  $ python main.py --train_smiles_vae
+  $ python main.py --train_smiles_vae --teacher_forcing_rate 0.5 --temperature 1.0
   ```
   - **STEP 4**: Test the trained MolVAE:
   ```
@@ -50,13 +84,22 @@ $ source activate gxvaes_env
   ```
   - **STEP 5**: Generate molecules for the 10 ligands using GxVAEs
   ```
-  $ python main.py --generation
+  $ python main.py --generation --protein_name AKT1 --candidate_num 50 --temperature 1.0
   ```	
   - **STEP 6**: Calculate Tanimoto similarity between a source ligand and generated SMILES strings: 
   ```
   $ python main.py --calculate_tanimoto --protein_name ***
   ```
 &nbsp;&nbsp;&nbsp;&nbsp;Note that '***' indicates a protein name, such as 'AKT1'.
+
+## Important CLI Notes
+- `--gene_hidden_sizes` accepts one or more integers, e.g.:
+  ```
+  $ python main.py --train_gene_vae --gene_hidden_sizes 512 256 128
+  ```
+- RNN direction flags:
+  - bidirectional (default): `--bidirectional`
+  - unidirectional: `--no_bidirectional`
 
 ## Contact
 If you have any questions, please feel free to contact Chen Li at li.chen.z2@a.mail.nagoya-u.ac.jp.

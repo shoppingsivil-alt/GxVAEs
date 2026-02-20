@@ -265,19 +265,20 @@ class DecoderRNN(nn.Module):
         inputs,
         z, 
         condition,
-        temperature
+        sampling_temperature,
+        teacher_forcing_rate
     ):
         """
         args:
             - inputs: [batch_size, seq_len]
             - z: a batch of latent vectors [batch_size, latent_size]
             - condition: a batch of GX features [batch_size, condition_size]
-            - temperature: temperature to smooth the distribution
+            - sampling_temperature: temperature to smooth token sampling
+            - teacher_forcing_rate: probability of teacher forcing in [0, 1]
             
         returns:
             - outputs: output distribution of SMILES strings [batch_size, seq_len, vocab_size]
         """
-        model_random_state = np.random.RandomState(1988)
         batch_size, n_steps = inputs.size()
         outputs =torch.zeros(batch_size, n_steps, self.vocab_size).to(get_device())
         input = torch.ones([batch_size, 1], dtype=torch.int32) * self.tokenizer.char_to_int[self.start] # [batch_size, 1]
@@ -289,12 +290,14 @@ class DecoderRNN(nn.Module):
         for i in range(n_steps):
             output, hidden = self.step(decode_embed, input, hidden) # output: [batch_size, vocab_size]
             outputs[:, i] = output
-            use_teacher_forcing = model_random_state.rand() < temperature
+            use_teacher_forcing = torch.rand(1).item() < teacher_forcing_rate
             
             if use_teacher_forcing:
-                input = inputs[:, i]
+                input = inputs[:, i].unsqueeze(1)
             else:
-                input = torch.multinomial(torch.exp(output), 1) # [batch_size, 1]
+                logits = output / max(sampling_temperature, 1e-8)
+                probs = torch.softmax(logits, dim=1)
+                input = torch.multinomial(probs, 1) # [batch_size, 1]
                 
             if input.dim() == 0:
                 input = input.unsqueeze(0)
@@ -319,7 +322,7 @@ class DecoderRNN(nn.Module):
             - output: token / atom distribution with [batch_size, vocab_size]
             - hidden: stepwise hidden state of GRU with [1, batch_size, hidden_size]
         """
-        input = self.embedding(input).squeeze() # [batch_size, emb_size]
+        input = self.embedding(input).squeeze(1) # [batch_size, emb_size]
         input = torch.cat((input, decode_embed), 1) # [batch_size, emb_size+latent_size+condition_size]
         input = input.unsqueeze(1)  # [batch_size, 1, emb_size+latent_size+condition_size]
         output, hidden = self.gru(input, hidden) # output: [batch_size, 1, hidden_size], hidden: [1, batch_size, hidden_size]
@@ -351,13 +354,15 @@ class SmilesVAE(nn.Module):
         self,
         inputs,
         condition,
-        temperature
+        sampling_temperature,
+        teacher_forcing_rate
     ):
         """
         args: 
             - inputs: a batch of SMILES strings [batch_size, seq_len]
             - condition: a batch of GX features [batch_size, condition_size]
-            - temperature: temperature to smooth the distribution
+            - sampling_temperature: temperature to smooth token sampling
+            - teacher_forcing_rate: probability of teacher forcing in [0, 1]
         
         returns:
             - z: a batch of latent vectors [batch_size, latent_size]
@@ -365,7 +370,7 @@ class SmilesVAE(nn.Module):
         """
         self.mu, self.logvar = self.encoder(inputs)
         z = self.reparameterize(self.mu, self.logvar) # [batch_size, latent_size]
-        decoded = self.decoder(inputs, z, condition, temperature) # [batch_size, seq_len, vocab_size]
+        decoded = self.decoder(inputs, z, condition, sampling_temperature, teacher_forcing_rate) # [batch_size, seq_len, vocab_size]
         
         return z, decoded
     
@@ -398,7 +403,8 @@ class SmilesVAE(nn.Module):
         rand_z,
         condition,
         max_len,
-        tokenizer
+        tokenizer,
+        sampling_temperature=1.0
     ):
         """
         args:
@@ -421,13 +427,15 @@ class SmilesVAE(nn.Module):
 
         for i in range(max_len):
             output, hidden = self.decoder.step(decode_embed, input, hidden) # output: [batch_size, vocab_size]
-            input = torch.multinomial(torch.exp(output), 1) # [batch_size, 1]
+            logits = output / max(sampling_temperature, 1e-8)
+            probs = torch.softmax(logits, dim=1)
+            input = torch.multinomial(probs, 1) # [batch_size, 1]
             generated_smiles_tokens[:, i] = input.squeeze(1) # [batch_size, max_len]
             
         return generated_smiles_tokens
 
     def load_model(self, path):
-        weights = torch.load(path)
+        weights = torch.load(path, map_location=get_device())
         self.load_state_dict(weights)
 
     def save_model(self, path):
