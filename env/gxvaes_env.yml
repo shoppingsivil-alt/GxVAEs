@@ -109,7 +109,7 @@ dependencies:
     - editdistance==0.3.1
     - frozenlist==1.2.0
     - fsspec==2022.1.0
-    - future==0.16.0
+    - future==0.18.2
     - google-auth==2.6.2
     - google-auth-oauthlib==0.4.6
     - grpcio==1.44.0
