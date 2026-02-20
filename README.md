@@ -15,7 +15,7 @@ GxVAEs aim to
 Execute the following command:
 ```
 $ conda env create -f env/gxvaes_env.yml
-$ conda activate gxvaes_env
+$ conda activate py36tf
 ```
 
 ## Windows (PowerShell) Quick Start
@@ -25,7 +25,7 @@ From the `GxVAEs` directory in PowerShell:
 conda env create -f .\env\gxvaes_env.yml
 
 # 2) Activate
-conda activate gxvaes_env
+conda activate py36tf
 
 # 3) (Optional) Reproducibility
 # Add --use_seed to commands below if you want deterministic behavior.
