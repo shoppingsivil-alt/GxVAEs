@@ -18,6 +18,27 @@ $ conda env create -f env/gxvaes_env.yml
 $ conda activate py36tf
 ```
 
+### Important: Git LFS dataset files
+This repository stores large dataset files (for example `datasets/LINCS/mcf7.csv`) with Git LFS.
+If Git LFS is not installed, you may get a pointer file that starts with:
+`version https://git-lfs.github.com/spec/v1`
+
+Install and fetch LFS files before training:
+```bash
+# Ubuntu/Debian
+sudo apt-get update && sudo apt-get install -y git-lfs
+
+git lfs install
+git lfs pull
+git lfs checkout
+```
+
+Quick check:
+```bash
+head -n 1 datasets/LINCS/mcf7.csv
+```
+If the first line starts with `version https://git-lfs.github.com/spec/v1`, the real dataset content has not been downloaded yet.
+
 ## Windows (PowerShell) Quick Start
 From the `GxVAEs` directory in PowerShell:
 ```powershell
@@ -55,8 +76,15 @@ Then restart PowerShell.
 ## File Description
 
 - **The datasets Folder**
-    - LINCS/mcf7.csv: The training and validation datasets, which consist of gene expression profiles of the MCF7 cell line treated with 13,755 molecules, were used.
-    - tools floder
+    - `LINCS/mcf7.csv`: training gene expression profiles for the MCF7 cell line.
+    - `test_protein/*.csv`: test gene profiles for proteins (AKT1, AKT2, AURKB, CTSK, EGFR, HDAC1, MTOR, PIK3CA, SMAD3, TP53).
+    - `ligands/source_*.csv`: source ligands used for Tanimoto comparison.
+    - `tools/`: helper mapping files (`symbol2hsa.json`, `source_genes.csv`, `cell_list.txt`).
+- **The results Folder**
+    - `results/saved_gene_vae_<cell>.pkl` is created by `--train_gene_vae` (for default cell: `results/saved_gene_vae_mcf7.pkl`).
+    - `results/gene_vae_train_results.csv` is created during GeneVAE training.
+    - `results/saved_smiles_vae.pkl` and `results/smiles_vae_train_results.csv` are created by `--train_smiles_vae`.
+    - `results/generation/res-<protein>.csv` is created by `--generation` (example: `results/generation/res-AKT1.csv`).
 - **main.py:** Define the main function for training, generation, and evaluation.
 - **GeneVAE.py**: Defines the GeneVAE model for extracting gene expression profile features.
 - **train_gene_vae.py**: Code for training the GeneVAE model.
@@ -66,26 +94,29 @@ Then restart PowerShell.
 
 ## Experimental Reproduction
 
-  - **STEP 1**: Pretrain ProfileVAE:
+  - **STEP 1**: Pretrain GeneVAE:
   ``` 
   $ python main.py --train_gene_vae
   ```
-  - **STEP 2**: Test the trained ProfileVAE:
+  - **STEP 2**: Test the trained GeneVAE:
   ```
   $ python main.py --test_gene_vae
   ```
-  - **STEP 3**: Train MolVAE:
+  Requires: `results/saved_gene_vae_mcf7.pkl` (generated in STEP 1).
+  - **STEP 3**: Train SmilesVAE:
   ```  
   $ python main.py --train_smiles_vae --teacher_forcing_rate 0.5 --temperature 1.0
   ```
-  - **STEP 4**: Test the trained MolVAE:
+  - **STEP 4**: Test the trained SmilesVAE:
   ```
   $ python main.py --test_smiles_vae
   ```
+  Requires: `results/saved_smiles_vae.pkl` (generated in STEP 3).
   - **STEP 5**: Generate molecules for the 10 ligands using GxVAEs
   ```
   $ python main.py --generation --protein_name AKT1 --candidate_num 50 --temperature 1.0
   ```	
+  Output: `results/generation/res-AKT1.csv`
   - **STEP 6**: Calculate Tanimoto similarity between a source ligand and generated SMILES strings: 
   ```
   $ python main.py --calculate_tanimoto --protein_name ***
