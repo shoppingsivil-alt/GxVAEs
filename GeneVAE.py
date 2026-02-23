@@ -25,7 +25,7 @@ class GeneEncoder(nn.Module):
         hidden_sizes: number of neurons of stack dense layers
         latent_size: size of the latent vector
         activation_fn: activation function
-        dropout: dropout probabilites
+        dropout: dropout probabilities
         """
         super(GeneEncoder, self).__init__()
         
@@ -81,7 +81,7 @@ class GeneDecoder(nn.Module):
         hidden_sizes: number of neurons of stack dense layers
         output_size: number of gene columns (eg. 978)
         activation_fn: activation function
-        dropout: dropout probabilites
+        dropout: dropout probabilities
         """
         super(GeneDecoder, self).__init__()
 
