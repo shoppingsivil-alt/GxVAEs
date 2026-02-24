@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 
 from utils import kld_loss, get_device
 
