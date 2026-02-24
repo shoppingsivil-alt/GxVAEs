@@ -3,9 +3,7 @@ import numpy as np
 import pandas as pd
 import torch.nn as nn
 from rdkit import Chem
-from GeneVAE import GeneVAE
 from utils import get_device
-import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader, random_split
 
 # ============================================================================
