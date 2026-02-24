@@ -433,7 +433,12 @@ class SmilesVAE(nn.Module):
         return generated_smiles_tokens
 
     def load_model(self, path):
-        weights = torch.load(path, map_location=get_device())
+        # Use safe weight-only loading when supported (newer PyTorch).
+        try:
+            weights = torch.load(path, map_location=get_device(), weights_only=True)
+        except TypeError:
+            # Backward compatibility for older PyTorch versions.
+            weights = torch.load(path, map_location=get_device())
         self.load_state_dict(weights)
 
     def save_model(self, path):
